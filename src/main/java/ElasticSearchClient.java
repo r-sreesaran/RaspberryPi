@@ -3,7 +3,8 @@
  */
 
 
-import com.google.gson.Gson;
+import com.google.gson.*;
+import com.jayway.restassured.specification.ResponseSpecification;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -20,15 +21,14 @@ import org.elasticsearch.action.search.SearchType;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 /**
  * Created by sree on 19/05/16.
  */
 public class ElasticSearchClient {
-    //TODO write a client to send json data
-
-    //TODO logic to generate special offers for customers based on phone number
 
 
 
@@ -49,22 +49,28 @@ public class ElasticSearchClient {
         Client client = TransportClient.builder().build()
                 .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("localhost"), 9300));
 
+//        String date = uniqueID.substring(0,uniqueID.indexOf("_"));
+//        String billNumber = uniqueID.substring(uniqueID.indexOf("_")+1,uniqueID.length());
+//
+//        BoolQueryBuilder query = boolQuery()
+//                .must(termQuery("billNumber",billNumber))
+//                .must(termQuery("date",date));
+//
+//        SearchResponse response = client.prepareSearch("mylapore")
+//                .setTypes("Invoice")
+//                .setSearchType(SearchType.DFS_QUERY_AND_FETCH)
+//                .setQuery(query)
+//                .execute()
+//                .actionGet();
 
-        BoolQueryBuilder query = boolQuery()
-                .must(termQuery("billNumber","1"))
-                .must(termQuery("date","2016-04-01"));
 
-        SearchResponse response = client.prepareSearch("mylapore")
-                .setTypes("Invoice")
-                .setSearchType(SearchType.DFS_QUERY_AND_FETCH)
-                .setQuery(query)
-                .execute()
-                .actionGet();
-
+        String responsedata = given().baseUri("http://localhost:9200/mylapore/Invoice/"+uniqueID).contentType("application/json").get().body().asString();
          // on shutdown
-
+        System.out.println(responsedata);
+        // System.out.println(response.toString());
         client.close();
-        return response.toString();
+       // return response.toString();
+        return responsedata;
     }
 
     public void putCustomerDetails(Data data) throws UnknownHostException {
@@ -76,8 +82,32 @@ public class ElasticSearchClient {
 
     }
 
+    /**
+     * This extract the  json document from the response
+     * @param data
+     */
+    public void documentExtractor(String data) {
+        JsonElement jelement = new JsonParser().parse(data);
+        JsonObject jobject = jelement.getAsJsonObject();
+        jobject = jobject.getAsJsonObject("data");
+        JsonArray jarray = jobject.getAsJsonArray("translations");
+        jobject = jarray.get(0).getAsJsonObject();
+        String result = jobject.get("translatedText").toString();
+        System.out.println(result);
+    }
+    /*
+    This method will be called after getting the rating from the customer and add the rating in the field
+     */
+    public void addRating(int rating,String uniqueId) throws UnknownHostException {
+        String data = geCustomerDetails(uniqueId);
+        documentExtractor(uniqueId);
+    }
+
+
     public static void main(String[] args) throws UnknownHostException {
         ElasticSearchClient client = new ElasticSearchClient();
-        client.geCustomerDetails("j");
+        client.geCustomerDetails("2016-04-01_11");
     }
+
+
 }
