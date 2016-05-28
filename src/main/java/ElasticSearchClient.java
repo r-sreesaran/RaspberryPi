@@ -29,85 +29,65 @@ import java.util.regex.Pattern;
  * Created by sree on 19/05/16.
  */
 public class ElasticSearchClient {
-
-
-
+    String promotionalCode="rv90";
     /**
-     * Given all the data is in a index without reponse
-     * Insert a unique field describing the bill (The date along with the bill number for the day)
-     * Add a field for total amount
-     * all the data needs to saved in a different index and must be fetched from that index and saved in a new one
-     * the newly saved must have the rating and based on which all the other operations must be performed
-     *
+     * Retirves the customer details
+     * @param uniqueID
+     * @return
+     * @throws UnknownHostException
      */
-    public void restClient() {
-        given().content("{ \"message\" : \"hello world\"}").with().contentType(JSON).and().expect().body(equalTo("hello world")).when().post("/jsonBody");
-    }
-
     public String geCustomerDetails(String uniqueID) throws UnknownHostException {
-
-        Client client = TransportClient.builder().build()
-                .addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("localhost"), 9300));
-
-//        String date = uniqueID.substring(0,uniqueID.indexOf("_"));
-//        String billNumber = uniqueID.substring(uniqueID.indexOf("_")+1,uniqueID.length());
-//
-//        BoolQueryBuilder query = boolQuery()
-//                .must(termQuery("billNumber",billNumber))
-//                .must(termQuery("date",date));
-//
-//        SearchResponse response = client.prepareSearch("mylapore")
-//                .setTypes("Invoice")
-//                .setSearchType(SearchType.DFS_QUERY_AND_FETCH)
-//                .setQuery(query)
-//                .execute()
-//                .actionGet();
-
-
         String responsedata = given().baseUri("http://localhost:9200/mylapore/Invoice/"+uniqueID).contentType("application/json").get().body().asString();
-         // on shutdown
-        System.out.println(responsedata);
-        // System.out.println(response.toString());
-        client.close();
-       // return response.toString();
         return responsedata;
     }
 
+    /**
+     * This save the bill details to elastic search
+     * @param data
+     * @throws UnknownHostException
+     */
     public void putCustomerDetails(Data data) throws UnknownHostException {
-
         Gson gson = new Gson();
         gson.toJson(data);
-
         given().baseUri("http://localhsot:9200").body(gson).with().contentType("application/json").post("/mylapore/Invoice/"+data.getDate()+"-"+data.getBillNumber());
+    }
 
+
+    /**
+     * Add or update the customer rating
+     * @param rating
+     * @param uniqueId
+     * @throws UnknownHostException
+     */
+    public void addRating(int rating,String uniqueId) throws UnknownHostException {
+        given().baseUri("http://localhost:9200").body("{\n" +
+                "   \"doc\" : {\n" +
+                "      \"rating1\" :  "+rating+" \n" +
+                "      \n" +
+                "   }\n" +
+                "}").contentType("application/json").post("/mylapore/Invoice/"+uniqueId+"/_update");
+        generatePromoCode(rating,uniqueId);
     }
 
     /**
-     * This extract the  json document from the response
-     * @param data
+     * Generates the promotional code based on rating or the number of times the customer has given a rating
+     * @param uniqueId
      */
-    public void documentExtractor(String data) {
-        JsonElement jelement = new JsonParser().parse(data);
-        JsonObject jobject = jelement.getAsJsonObject();
-        jobject = jobject.getAsJsonObject("data");
-        JsonArray jarray = jobject.getAsJsonArray("translations");
-        jobject = jarray.get(0).getAsJsonObject();
-        String result = jobject.get("translatedText").toString();
-        System.out.println(result);
-    }
-    /*
-    This method will be called after getting the rating from the customer and add the rating in the field
-     */
-    public void addRating(int rating,String uniqueId) throws UnknownHostException {
-        String data = geCustomerDetails(uniqueId);
-        documentExtractor(uniqueId);
+    public void generatePromoCode(int rating,String uniqueId) {
+       if(rating<=2){
+
+       }
+
+
     }
 
+    public void callManager() {
+
+    }
 
     public static void main(String[] args) throws UnknownHostException {
         ElasticSearchClient client = new ElasticSearchClient();
         client.geCustomerDetails("2016-04-01_11");
     }
-
 
 }
