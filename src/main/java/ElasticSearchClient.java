@@ -4,6 +4,7 @@
 
 
 import com.google.gson.*;
+import com.jayway.restassured.response.Response;
 import com.jayway.restassured.specification.ResponseSpecification;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
@@ -30,6 +31,8 @@ import java.util.regex.Pattern;
  */
 public class ElasticSearchClient {
     String promotionalCode="rv90";
+    String responseData;
+    String customerCellNo;
     /**
      * Retirves the customer details
      * @param uniqueID
@@ -37,8 +40,8 @@ public class ElasticSearchClient {
      * @throws UnknownHostException
      */
     public String geCustomerDetails(String uniqueID) throws UnknownHostException {
-        String responsedata = given().baseUri("http://localhost:9200/mylapore/Invoice/"+uniqueID).contentType("application/json").get().body().asString();
-        return responsedata;
+        responseData = given().baseUri("http://localhost:9200/mylapore/Invoice/"+uniqueID).contentType("application/json").get().body().asString();
+        return responseData;
     }
 
     /**
@@ -75,19 +78,31 @@ public class ElasticSearchClient {
      */
     public void generatePromoCode(int rating,String uniqueId) {
        if(rating<=2){
+          String responseData = given().baseUri("http://localhost:9200").get("/mylapore/Invoice/"+uniqueId).body().asString();
+          JsonObject jsonObj = new JsonParser().parse(responseData).getAsJsonObject();
+          JsonObject custDetails = jsonObj.get("CustomerDetails").getAsJsonObject();
+          customerCellNo = custDetails.getAsString();
+
+          //customerName = jsonObj.get("").toString();
+          messageToManager();
+       }
+        else {
 
        }
 
 
     }
 
-    public void callManager() {
+
+
+    public void messageToManager() {
 
     }
 
     public static void main(String[] args) throws UnknownHostException {
         ElasticSearchClient client = new ElasticSearchClient();
-        client.geCustomerDetails("2016-04-01_11");
+        client.generatePromoCode(1,"2016-04-01_11");
+        //client.geCustomerDetails("2016-04-01_11");
     }
 
 }
