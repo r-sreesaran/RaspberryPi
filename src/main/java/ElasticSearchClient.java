@@ -4,26 +4,19 @@
 
 
 import com.google.gson.*;
-import com.jayway.restassured.response.Response;
-import com.jayway.restassured.specification.ResponseSpecification;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.index.query.BoolQueryBuilder;
 
-import static com.jayway.restassured.http.ContentType.JSON;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.hamcrest.core.IsEqual.equalTo;
-import static org.junit.Assert.assertThat;
-import static com.jayway.restassured.RestAssured.*;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchType;
+import com.twilio.sdk.TwilioRestClient;
+import com.twilio.sdk.TwilioRestException;
+import com.twilio.sdk.resource.factory.MessageFactory;
+import com.twilio.sdk.resource.instance.Message;
+import org.apache.http.NameValuePair;
+import org.apache.http.message.BasicNameValuePair;
 
-import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.jayway.restassured.RestAssured.given;
 
 
 /**
@@ -33,6 +26,8 @@ public class ElasticSearchClient {
     String promotionalCode="rv90";
     String responseData;
     String customerCellNo;
+    public static final String ACCOUNT_SID = "AC23ed320178145271743a97cf7a63f2b9";
+    public static final String AUTH_TOKEN = "6090858bb20af2ae43427dc5f68c9c20";
     /**
      * Retirves the customer details
      * @param uniqueID
@@ -62,7 +57,7 @@ public class ElasticSearchClient {
      * @param uniqueId
      * @throws UnknownHostException
      */
-    public void addRating(int rating,String uniqueId) throws UnknownHostException {
+    public void addRating(int rating,String uniqueId) throws UnknownHostException, TwilioRestException {
         given().baseUri("http://localhost:9200").body("{\n" +
                 "   \"doc\" : {\n" +
                 "      \"rating1\" :  "+rating+" \n" +
@@ -76,30 +71,51 @@ public class ElasticSearchClient {
      * Generates the promotional code based on rating or the number of times the customer has given a rating
      * @param uniqueId
      */
-    public void generatePromoCode(int rating,String uniqueId) {
-       if(rating<=2){
-          String responseData = given().baseUri("http://localhost:9200").get("/mylapore/Invoice/"+uniqueId).body().asString();
-          JsonObject jsonObj = new JsonParser().parse(responseData).getAsJsonObject();
-          JsonObject custDetails = jsonObj.get("CustomerDetails").getAsJsonObject();
-          customerCellNo = custDetails.getAsString();
+    public void generatePromoCode(int rating,String uniqueId) throws TwilioRestException {
+        String responseData = given().baseUri("http://localhost:9200").get("/mylapore/Invoice/"+uniqueId+"/_source").body().asString();
+        JsonObject billDet = new JsonParser().parse(responseData).getAsJsonObject();
+        String rat = billDet.get("rating").toString();
+        JsonObject custDet = billDet.get("customerDetails").getAsJsonObject();
+        customerCellNo = custDet.get("cell").toString();
 
-          //customerName = jsonObj.get("").toString();
-          messageToManager();
+
+        //Logic for obtaining based on cell number
+        String countData =  given().baseUri("http://localhost:9200").body("{\n" +
+                "        \"query\" : {\n" +
+                "            \"term\" : { \"customerDetails.cell\":"+customerCellNo+"}\n" +
+                "        }\n" +
+                "    }").post("/mylapore/Invoice/_count").body().asString();
+        String count = new JsonParser().parse(countData).getAsJsonObject().get("count").toString();
+
+        if((rating<=2||Integer.parseInt(count)>4)&&rat==null){
+
+           //This verify whether the field is present in elastic search
+
+           //code logic for sending sms
+           TwilioRestClient client = new TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN);
+
+           List<NameValuePair> params = new ArrayList<NameValuePair>();
+           params.add(new BasicNameValuePair("From", "+12282078733"));
+           params.add(new BasicNameValuePair("To", "+91"+customerCellNo));
+           params.add(new BasicNameValuePair("Body", "PromoCode"));
+
+           MessageFactory messageFactory = client.getAccount().getMessageFactory();
+           Message message = messageFactory.create(params);
+           System.out.println(message.getSid());
+           messageToManager();
        }
-        else {
-
+       else {
+        // Display message for ui
        }
 
 
     }
-
-
 
     public void messageToManager() {
 
     }
 
-    public static void main(String[] args) throws UnknownHostException {
+    public static void main(String[] args) throws UnknownHostException, TwilioRestException {
         ElasticSearchClient client = new ElasticSearchClient();
         client.generatePromoCode(1,"2016-04-01_11");
         //client.geCustomerDetails("2016-04-01_11");
