@@ -26,6 +26,7 @@ public class ElasticSearchClient {
     String promotionalCode="rv90";
     String responseData;
     String customerCellNo;
+    String ManagerNumber;
     public static final String ACCOUNT_SID = "AC23ed320178145271743a97cf7a63f2b9";
     public static final String AUTH_TOKEN = "6090858bb20af2ae43427dc5f68c9c20";
     /**
@@ -89,8 +90,6 @@ public class ElasticSearchClient {
 
         if((rating<=2||Integer.parseInt(count)>4)&&rat==null){
 
-           //This verify whether the field is present in elastic search
-
            //code logic for sending sms
            TwilioRestClient client = new TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN);
 
@@ -101,8 +100,9 @@ public class ElasticSearchClient {
 
            MessageFactory messageFactory = client.getAccount().getMessageFactory();
            Message message = messageFactory.create(params);
-           System.out.println(message.getSid());
-           messageToManager();
+
+            if(rating<=2) messageToManager();
+
        }
        else {
         // Display message for ui
@@ -111,8 +111,16 @@ public class ElasticSearchClient {
 
     }
 
-    public void messageToManager() {
+    public void messageToManager() throws TwilioRestException {
+        TwilioRestClient client = new TwilioRestClient(ACCOUNT_SID, AUTH_TOKEN);
 
+        List<NameValuePair> params = new ArrayList<NameValuePair>();
+        params.add(new BasicNameValuePair("From", "+12282078733"));
+        params.add(new BasicNameValuePair("To", "+91"+ManagerNumber));
+        params.add(new BasicNameValuePair("Body", "PromoCode"));
+
+        MessageFactory messageFactory = client.getAccount().getMessageFactory();
+        Message message = messageFactory.create(params);
     }
 
     public static void main(String[] args) throws UnknownHostException, TwilioRestException {
